@@ -1,0 +1,37 @@
+object Form2: TForm2
+  Left = 463
+  Height = 174
+  Top = 174
+  Width = 224
+  Caption = 'Wybierz logikę'
+  ClientHeight = 174
+  ClientWidth = 224
+  LCLVersion = '1.0.4.0'
+  object Button1: TButton
+    Left = 9
+    Height = 49
+    Top = 8
+    Width = 207
+    Caption = 'Preferencja czytelników'
+    OnClick = Button1Click
+    TabOrder = 0
+  end
+  object Button2: TButton
+    Left = 9
+    Height = 49
+    Top = 64
+    Width = 207
+    Caption = 'Preferencja pisarzy'
+    OnClick = Button2Click
+    TabOrder = 1
+  end
+  object Button3: TButton
+    Left = 9
+    Height = 49
+    Top = 120
+    Width = 207
+    Caption = 'Nie głódź nikogo'
+    OnClick = Button3Click
+    TabOrder = 2
+  end
+end

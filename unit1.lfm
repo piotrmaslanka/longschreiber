@@ -1,0 +1,86 @@
+object Form1: TForm1
+  Left = 288
+  Height = 343
+  Top = 93
+  Width = 602
+  Caption = 'Longschreiber'
+  ClientHeight = 343
+  ClientWidth = 602
+  OnCreate = FormCreate
+  OnShow = FormShow
+  LCLVersion = '1.0.4.0'
+  object mCzytelnicy: TMemo
+    Left = 0
+    Height = 343
+    Top = 0
+    Width = 200
+    Align = alLeft
+    TabOrder = 0
+  end
+  object mPisarze: TMemo
+    Left = 410
+    Height = 343
+    Top = 0
+    Width = 192
+    Align = alRight
+    TabOrder = 1
+  end
+  object Button1: TButton
+    Left = 200
+    Height = 25
+    Top = 6
+    Width = 99
+    Caption = 'Dodaj czytelnika'
+    OnClick = Button1Click
+    TabOrder = 2
+  end
+  object Button2: TButton
+    Left = 304
+    Height = 25
+    Top = 6
+    Width = 107
+    Caption = 'Dodaj pisarza'
+    OnClick = Button2Click
+    TabOrder = 3
+  end
+  object Button3: TButton
+    Left = 200
+    Height = 32
+    Top = 64
+    Width = 211
+    Caption = 'Cała Polska czyta dzieciom'
+    TabOrder = 4
+  end
+  object Button4: TButton
+    Left = 200
+    Height = 32
+    Top = 96
+    Width = 211
+    Caption = 'NaNoWriMo'
+    TabOrder = 5
+  end
+  object Button5: TButton
+    Left = 222
+    Height = 47
+    Top = 193
+    Width = 51
+    Caption = 'PLAY'
+    OnClick = Button5Click
+    TabOrder = 6
+  end
+  object Button6: TButton
+    Left = 280
+    Height = 47
+    Top = 193
+    Width = 51
+    Caption = 'STEP'
+    OnClick = Button6Click
+    TabOrder = 7
+  end
+  object Timer1: TTimer
+    Enabled = False
+    OnTimer = Timer1Timer
+    left = 216
+    top = 264
+  end
+end
