@@ -10,6 +10,7 @@ uses
 type
   TManagedThread = class(TThread)
   public
+    SignalStepCalls: Cardinal;
     CategoryCode: Cardinal;
     MySemaphore: TSemaphore; // do synchronizacji animacji
                  // jak watek juz na czyms nie wisi to zawisnie wlasnie na tym
@@ -18,6 +19,7 @@ type
     // watek chce sie na nim powiesic, P()uje go i sie wiesza
     // watek glowny kiedys go odwiesi
     procedure SignalStep; // watek wywoluje jesli wykonal jakis element pracy
+    procedure ZeroStep;
     constructor Create(CreateSuspended: Boolean);
 
   end;
@@ -34,6 +36,7 @@ implementation
 
 constructor TManagedThread.Create(CreateSuspended: Boolean);
 begin
+  SignalStepCalls := 0;
    MySemaphore := TSemaphore.Create();
    FreeOnTerminate := false;
    inherited Create(CreateSuspended);
@@ -75,9 +78,15 @@ begin
      // odwies powieszonych na wlasnym semaforze
      for i := 0 to ThreadList.Count-1 do ThreadList[i].MySemaphore.VIfLocked();
 end;
+procedure TManagedThread.ZeroStep();
+begin
+  SignalStepCalls := 0;
+  MySemaphore.P();                      // powies sie na wlasnym semaforze :D
+end;
 
 procedure TManagedThread.SignalStep();
 begin
+  Inc(SignalStepCalls);
   MySemaphore.P();                      // powies sie na wlasnym semaforze :D
 end;
 initialization

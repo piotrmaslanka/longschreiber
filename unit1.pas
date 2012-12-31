@@ -76,6 +76,9 @@ var
   wWritecount: Integer = 0;
   wMutex1, wMutex2, wMutex3, wW, wR: TSemaphore;
 
+  fNoWaiting, fNoAccessing, fCounterMutex: TSemaphore;
+  nreaders: Cardinal = 0;
+
   WritersList: TWritersList;
   ReadersList: TReadersList;
 
@@ -102,6 +105,9 @@ begin
   wW := TSemaphore.Create(1,1);
   wR := TSemaphore.Create(1,1);
 
+  fNoWaiting := TSemaphore.Create(1,1);
+  fNoAccessing := TSemaphore.Create(1,1);
+  fCounterMutex := TSemaphore.Create(1,1);
 end;
 
 procedure TForm1.Button1Click(Sender: TObject);
@@ -170,11 +176,11 @@ var
 begin
    mCzytelnicy.Clear;
    for i := 0 to ReadersList.Count-1 do
-       mCzytelnicy.Lines.Append('#'+IntToStr(ReadersList[i].TID)+' '+ReadersList[i].Status);
+       mCzytelnicy.Lines.Append('#'+IntToStr(ReadersList[i].TID)+' ('+IntToStr(ReadersList[i].SignalStepCalls)+') '+ReadersList[i].Status);
 
    mPisarze.Clear;
    for i := 0 to WritersList.Count-1 do
-       mPisarze.Lines.Append('#'+IntToStr(WritersList[i].TID)+' '+WritersList[i].Status);
+       mPisarze.Lines.Append('#'+IntToStr(WritersList[i].TID)+' ('+IntToStr(WritersList[i].SignalStepCalls)+') '+WritersList[i].Status);
 
    mutexesList.Clear;
    if logicType = ltREADERS then // ------------------- READERS
@@ -189,6 +195,12 @@ begin
         mutexesList.Lines.Append('Mutex3: '+IntToStr(wMutex3.CurrentValue));
         mutexesList.Lines.Append('W: '+IntToStr(wW.CurrentValue));
         mutexesList.Lines.Append('R: '+IntToStr(wR.CurrentValue));
+   end else if logicType = ltFAIR then // -------------- FAIR
+   begin
+        mutexesList.Lines.Append('no_accessing: '+IntToStr(fNoAccessing.CurrentValue));
+        mutexesList.Lines.Append('no_waiting: '+IntToStr(fNoWaiting.CurrentValue));
+        mutexesList.Lines.Append('counter_mutex: '+IntToStr(fCounterMutex.CurrentValue));
+        mutexesList.Lines.Append('nreaders: '+IntToStr(nreaders));
    end;
 end;
 
@@ -233,7 +245,7 @@ begin
          SignalStep;
          rWrt.P();
          status := 'Piszę';
-         for i := 0 to Random(3)+1 do SignalStep;
+         for i := 0 to Random(3)+1 do ZeroStep;
 
          status := 'Zwalniam wrt';
          SignalStep;
@@ -261,7 +273,7 @@ begin
          wW.P();
 
          status := 'Piszę';
-         for i := 0 to Random(3)+1 do SignalStep;
+         for i := 0 to Random(3)+1 do ZeroStep;
 
          status := 'Zwalniam mutex W';
          SignalStep;
@@ -283,6 +295,28 @@ begin
          wMutex2.V();
     end;
 
+    if logicType = ltFAIR then
+    begin
+       status := 'Zajmuje no_waiting';
+       SignalStep;
+       fNoWaiting.P();
+
+       status := 'Zajmuje no_accessing';
+       SignalStep;
+       fNoAccessing.P();
+
+       status := 'Zwracam no_waiting';
+       SignalStep;
+       fNoWaiting.V();
+
+       status := 'Piszę';
+       for i := 0 to Random(3)+1 do ZeroStep;
+
+       status := 'Zwalniam no_accessing';
+       SignalStep;
+       fNoAccessing.V();
+    end;
+
     // pick logic, pursue it
     CyclesStall := 5+random(8);
   end;
@@ -291,6 +325,7 @@ end;
 procedure TReader.Execute;
 var
   i: Integer;
+  prev, current: Cardinal;
 begin
   TID := GetThreadID();
   while True do
@@ -329,7 +364,7 @@ begin
          SignalStep;
          rMutex.V();
          status := 'Czytam';
-         for i := 0 to Random(3)+1 do SignalStep;
+         for i := 0 to Random(3)+1 do ZeroStep;
 
          status := 'Zajmuję mutex';
          SignalStep;
@@ -381,7 +416,7 @@ begin
          wMutex3.V();
 
          status := 'Czytam';
-         for i := 0 to Random(3)+1 do SignalStep;
+         for i := 0 to Random(3)+1 do ZeroStep;
 
          status := 'Zajmuje mutex 1';
          SignalStep;
@@ -399,6 +434,59 @@ begin
          status := 'Zwalniam mutex 1';
          SignalStep;
          wMutex1.V();
+    end;
+
+    if logicType = ltFAIR then
+    begin
+         status := 'Zajmuje no_waiting';
+         SignalStep;
+         fNoWaiting.P();
+
+         status := 'Zajmuje counter_mutex';
+         SignalStep;
+         fCounterMutex.P();
+
+         status := 'Przeprowadzam arytmetyke';
+         SignalStep;
+         prev := nreaders;
+         Inc(nreaders);
+
+         status := 'Zwalniam counter_mutex';
+         SignalStep;
+         fCounterMutex.V();
+
+         if prev = 0 then
+         begin
+              status := 'Jestem ostatnim czytelnikiem';
+              SignalStep;
+              fNoAccessing.P();
+         end;
+
+         status := 'Zwalniam no_waiting';
+         SignalStep;
+         fNoWaiting.V();
+
+         status := 'Czytam';
+         for i := 0 to Random(3)+1 do ZeroStep;
+
+         status := 'Zajmuje counter_mutex';
+         SignalStep;
+         fCounterMutex.P();
+
+         status := 'Dokonuje arytmetyki';
+         SignalStep;
+         Dec(nreaders);
+         current := nreaders;
+
+         status := 'Zwalniam counter_mutex';
+         fCounterMutex.V();
+
+         if current = 0 then
+         begin
+              status := 'Zwalniam no_access jako ostatni pisarz';
+              SignalStep;
+              fNoAccessing.V();
+         end;
     end;
 
     // pick logic, pursue it
