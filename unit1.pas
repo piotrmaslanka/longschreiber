@@ -43,10 +43,13 @@ type
     Button5: TButton;
     Button6: TButton;
     mCzytelnicy: TMemo;
+    mutexesList: TMemo;
     mPisarze: TMemo;
     Timer1: TTimer;
     procedure Button1Click(Sender: TObject);
     procedure Button2Click(Sender: TObject);
+    procedure Button3Click(Sender: TObject);
+    procedure Button4Click(Sender: TObject);
     procedure Button5Click(Sender: TObject);
     procedure Button6Click(Sender: TObject);
     procedure FormCreate(Sender: TObject);
@@ -56,6 +59,7 @@ type
     { private declarations }
   public
     procedure Step;
+    procedure UpdateGraphics;
   end;
 
   TWritersList = specialize TFPGList<TWriter>;
@@ -103,11 +107,31 @@ end;
 procedure TForm1.Button1Click(Sender: TObject);
 begin
   AddThread(TReader.Create);
+  UpdateGraphics;
 end;
 
 procedure TForm1.Button2Click(Sender: TObject);
 begin
   AddThread(TWriter.Create);
+  UpdateGraphics;
+end;
+
+procedure TForm1.Button3Click(Sender: TObject);
+begin
+   if EverybodyReads then
+      Button3.Caption := 'Cała Polska czyta dzieciom'
+   else
+      Button3.Caption := 'Dość tego czytania';
+   EverybodyReads := not EverybodyReads;
+end;
+
+procedure TForm1.Button4Click(Sender: TObject);
+begin
+   if EverybodyWrites then
+      Button4.Caption := 'Wyciągamy karteczki'
+   else
+      Button4.Caption := 'Odkładamy długopisy';
+   EverybodyWrites := not EverybodyWrites;
 end;
 
 procedure TForm1.Button5Click(Sender: TObject);
@@ -140,20 +164,40 @@ begin
   Step;
 end;
 
+procedure TForm1.UpdateGraphics;
+var
+  i: Integer;
+begin
+   mCzytelnicy.Clear;
+   for i := 0 to ReadersList.Count-1 do
+       mCzytelnicy.Lines.Append('#'+IntToStr(ReadersList[i].TID)+' '+ReadersList[i].Status);
+
+   mPisarze.Clear;
+   for i := 0 to WritersList.Count-1 do
+       mPisarze.Lines.Append('#'+IntToStr(WritersList[i].TID)+' '+WritersList[i].Status);
+
+   mutexesList.Clear;
+   if logicType = ltREADERS then // ------------------- READERS
+   begin
+        mutexesList.Lines.Append('Wrt: '+IntToStr(rWrt.CurrentValue));
+        mutexesList.Lines.Append('Mutex: '+IntToStr(rWrt.CurrentValue));
+        mutexesList.Lines.Append('Read Count: '+IntToStr(rReadCount));
+   end else if logicType = ltWRITERS then // ------------- WRITERS
+   begin
+        mutexesList.Lines.Append('Mutex1: '+IntToStr(wMutex1.CurrentValue));
+        mutexesList.Lines.Append('Mutex2: '+IntToStr(wMutex2.CurrentValue));
+        mutexesList.Lines.Append('Mutex3: '+IntToStr(wMutex3.CurrentValue));
+        mutexesList.Lines.Append('W: '+IntToStr(wW.CurrentValue));
+        mutexesList.Lines.Append('R: '+IntToStr(wR.CurrentValue));
+   end;
+end;
+
 procedure TForm1.Step;
 var
   i: Integer;
 begin
      StartLockstep;
-
-     mCzytelnicy.Clear;
-     for i := 0 to ReadersList.Count-1 do
-         mCzytelnicy.Lines.Append('#'+IntToStr(ReadersList[i].TID)+' '+ReadersList[i].Status);
-
-     mPisarze.Clear;
-     for i := 0 to WritersList.Count-1 do
-         mPisarze.Lines.Append('#'+IntToStr(WritersList[i].TID)+' '+WritersList[i].Status);
-
+     UpdateGraphics;
      EndLockstep;
 end;
 
@@ -161,6 +205,8 @@ end;
 
 
 procedure TWriter.Execute;
+var
+ i: Integer;
 begin
   TID := GetThreadID();
   while True do
@@ -181,6 +227,61 @@ begin
     status := 'Przygotowuje sie do pisania';
     SignalStep;
 
+    if logicType = ltREADERS then
+    begin
+         status := 'Zajmuje wrt';
+         SignalStep;
+         rWrt.P();
+         status := 'Piszę';
+         for i := 0 to Random(3)+1 do SignalStep;
+
+         status := 'Zwalniam wrt';
+         SignalStep;
+         rWrt.V();
+    end;
+
+    if logicType = ltWRITERS then
+    begin
+         status := 'Zajmuje mutex 2';
+         SignalStep;
+         wMutex2.P();
+         Inc(wWriteCount);
+         if wWriteCount = 1 then
+         begin
+              status := 'Jestem pierwszym pisarzem';
+              SignalStep;
+              wR.P();
+         end;
+         status := 'Zwalniam mutex 2';
+         SignalStep;
+         wMutex2.V();
+
+         status := 'Zajmuje mutex W';
+         SignalStep;
+         wW.P();
+
+         status := 'Piszę';
+         for i := 0 to Random(3)+1 do SignalStep;
+
+         status := 'Zwalniam mutex W';
+         SignalStep;
+         wW.V();
+
+         status := 'Zajmuje mutex 2';
+         SignalStep;
+         wMutex2.P();
+         Dec(wWriteCount);
+         if wWriteCount = 0 then
+         begin
+              status := 'Jestem ostatnim pisarzem';
+              SignalStep;
+              wR.V();
+         end;
+
+         status := 'Zwalniam mutex 2';
+         SignalStep;
+         wMutex2.V();
+    end;
 
     // pick logic, pursue it
     CyclesStall := 5+random(8);
@@ -188,6 +289,8 @@ begin
 end;
 
 procedure TReader.Execute;
+var
+  i: Integer;
 begin
   TID := GetThreadID();
   while True do
@@ -208,9 +311,98 @@ begin
     status := 'Przygotowuje sie do czytania';
     SignalStep;
 
+    if logicType = ltREADERS then
+    begin
+         status :='Biorę mutex';
+         SignalStep;
+         rMutex.P();
+         status := 'Zwiększam readcount';
+         SignalStep;
+         Inc(rReadCount);
+         if rReadCount = 1 then
+         begin
+              status := 'Jestem pierwszym czytelnikiem';
+              rWrt.P();
+              SignalStep;
+         end;
+         status := 'Zwalniam mutex';
+         SignalStep;
+         rMutex.V();
+         status := 'Czytam';
+         for i := 0 to Random(3)+1 do SignalStep;
+
+         status := 'Zajmuję mutex';
+         SignalStep;
+         rMutex.P();
+         status := 'Zmniejszam ReadCount';
+         SignalStep;
+         Dec(rReadCount);
+         if rReadCount = 0 then
+         begin
+              status := 'Jestem ostatnim czytelnikiem';
+              rWrt.V();
+              SignalStep;
+         end;
+         status := 'Zwalniam mutex';
+         SignalStep;
+         rMutex.V();
+     end;
+
+    if logicType = ltWRITERS then
+    begin
+         status := 'Zajmuje mutex 3';
+         SignalStep;
+         wMutex3.P();
+
+         status := 'Zajmuje R';
+         SignalStep;
+         wR.P();
+
+         status := 'Zajmuje mutex 1';
+         SignalStep;
+         wMutex1.P();
+
+         Inc(wReadCount);
+         if wReadCount = 1 then
+         begin
+              status := 'Jestem pierwszym czytelnikiem';
+              SignalStep;
+              wW.P();
+         end;
+
+         status := 'Zwalniam mutex 1';
+         SignalStep;
+         wMutex1.V();
+         status := 'Zwalniam R';
+         SignalStep;
+         wR.V();
+         status := 'Zwalniam mutex 3';
+         SignalStep;
+         wMutex3.V();
+
+         status := 'Czytam';
+         for i := 0 to Random(3)+1 do SignalStep;
+
+         status := 'Zajmuje mutex 1';
+         SignalStep;
+         wMutex1.P();
+
+
+         Dec(wReadCount);
+         if wReadCount = 0 then
+         begin
+              status := 'Jestem ostatnim czytelnikiem';
+              SignalStep;
+              wW.V();
+         end;
+
+         status := 'Zwalniam mutex 1';
+         SignalStep;
+         wMutex1.V();
+    end;
 
     // pick logic, pursue it
-    CyclesStall := 3+random(9);
+    CyclesStall := 5+random(13);
   end;
 end;
 
