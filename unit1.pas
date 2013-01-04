@@ -171,36 +171,41 @@ begin
 end;
 
 procedure TForm1.UpdateGraphics;
+          function SecondsElapsed(k: TDateTime): String;
+          begin
+            result := IntToStr(Round((Time-k)*86400));
+          end;
+
 var
   i: Integer;
 begin
    mCzytelnicy.Clear;
    for i := 0 to ReadersList.Count-1 do
-       mCzytelnicy.Lines.Append('#'+IntToStr(ReadersList[i].TID)+' ('+IntToStr(ReadersList[i].SignalStepCalls)+') '+ReadersList[i].Status);
+       mCzytelnicy.Lines.Append('#'+IntToStr(ReadersList[i].TID)+' ('+SecondsElapsed(ReadersList[i].LastReset)+') '+ReadersList[i].Status);
 
    mPisarze.Clear;
    for i := 0 to WritersList.Count-1 do
-       mPisarze.Lines.Append('#'+IntToStr(WritersList[i].TID)+' ('+IntToStr(WritersList[i].SignalStepCalls)+') '+WritersList[i].Status);
+       mPisarze.Lines.Append('#'+IntToStr(WritersList[i].TID)+' ('+SecondsElapsed(WritersList[i].LastReset)+') '+WritersList[i].Status);
 
    mutexesList.Clear;
    if logicType = ltREADERS then // ------------------- READERS
    begin
-        mutexesList.Lines.Append('Wrt: '+IntToStr(rWrt.CurrentValue));
-        mutexesList.Lines.Append('Mutex: '+IntToStr(rWrt.CurrentValue));
-        mutexesList.Lines.Append('Read Count: '+IntToStr(rReadCount));
+        mutexesList.Lines.Append('W: '+IntToStr(rWrt.CurrentValue));
+        mutexesList.Lines.Append('M: '+IntToStr(rWrt.CurrentValue));
+        mutexesList.Lines.Append('Czytelnikow: '+IntToStr(rReadCount));
    end else if logicType = ltWRITERS then // ------------- WRITERS
    begin
-        mutexesList.Lines.Append('Mutex1: '+IntToStr(wMutex1.CurrentValue));
-        mutexesList.Lines.Append('Mutex2: '+IntToStr(wMutex2.CurrentValue));
-        mutexesList.Lines.Append('Mutex3: '+IntToStr(wMutex3.CurrentValue));
+        mutexesList.Lines.Append('M1: '+IntToStr(wMutex1.CurrentValue));
+        mutexesList.Lines.Append('M2: '+IntToStr(wMutex2.CurrentValue));
+        mutexesList.Lines.Append('M3: '+IntToStr(wMutex3.CurrentValue));
         mutexesList.Lines.Append('W: '+IntToStr(wW.CurrentValue));
         mutexesList.Lines.Append('R: '+IntToStr(wR.CurrentValue));
    end else if logicType = ltFAIR then // -------------- FAIR
    begin
-        mutexesList.Lines.Append('no_accessing: '+IntToStr(fNoAccessing.CurrentValue));
-        mutexesList.Lines.Append('no_waiting: '+IntToStr(fNoWaiting.CurrentValue));
-        mutexesList.Lines.Append('counter_mutex: '+IntToStr(fCounterMutex.CurrentValue));
-        mutexesList.Lines.Append('nreaders: '+IntToStr(nreaders));
+        mutexesList.Lines.Append('A: '+IntToStr(fNoAccessing.CurrentValue));
+        mutexesList.Lines.Append('W: '+IntToStr(fNoWaiting.CurrentValue));
+        mutexesList.Lines.Append('M: '+IntToStr(fCounterMutex.CurrentValue));
+        mutexesList.Lines.Append('Czytelnikow: '+IntToStr(nreaders));
    end;
 end;
 
@@ -241,20 +246,20 @@ begin
 
     if logicType = ltREADERS then
     begin
-         status := 'Zajmuje wrt';
+         status := 'Zajmuje W';
          SignalStep;
          rWrt.P();
          status := 'Piszę';
          for i := 0 to Random(3)+1 do ZeroStep;
 
-         status := 'Zwalniam wrt';
+         status := 'Zwalniam W';
          SignalStep;
          rWrt.V();
     end;
 
     if logicType = ltWRITERS then
     begin
-         status := 'Zajmuje mutex 2';
+         status := 'Zajmuje M2';
          SignalStep;
          wMutex2.P();
          Inc(wWriteCount);
@@ -264,22 +269,22 @@ begin
               SignalStep;
               wR.P();
          end;
-         status := 'Zwalniam mutex 2';
+         status := 'Zwalniam M2';
          SignalStep;
          wMutex2.V();
 
-         status := 'Zajmuje mutex W';
+         status := 'Zajmuje W';
          SignalStep;
          wW.P();
 
          status := 'Piszę';
          for i := 0 to Random(3)+1 do ZeroStep;
 
-         status := 'Zwalniam mutex W';
+         status := 'Zwalniam W';
          SignalStep;
          wW.V();
 
-         status := 'Zajmuje mutex 2';
+         status := 'Zajmuje 2';
          SignalStep;
          wMutex2.P();
          Dec(wWriteCount);
@@ -290,29 +295,29 @@ begin
               wR.V();
          end;
 
-         status := 'Zwalniam mutex 2';
+         status := 'Zwalniam 2';
          SignalStep;
          wMutex2.V();
     end;
 
     if logicType = ltFAIR then
     begin
-       status := 'Zajmuje no_waiting';
+       status := 'Zajmuje W';
        SignalStep;
        fNoWaiting.P();
 
-       status := 'Zajmuje no_accessing';
+       status := 'Zajmuje A';
        SignalStep;
        fNoAccessing.P();
 
-       status := 'Zwracam no_waiting';
+       status := 'Zwalniam W';
        SignalStep;
        fNoWaiting.V();
 
        status := 'Piszę';
        for i := 0 to Random(3)+1 do ZeroStep;
 
-       status := 'Zwalniam no_accessing';
+       status := 'Zwalniam A';
        SignalStep;
        fNoAccessing.V();
     end;
@@ -348,10 +353,10 @@ begin
 
     if logicType = ltREADERS then
     begin
-         status :='Biorę mutex';
+         status :='Zajmuje M';
          SignalStep;
          rMutex.P();
-         status := 'Zwiększam readcount';
+         status := 'Zwiększam Czytelnikow';
          SignalStep;
          Inc(rReadCount);
          if rReadCount = 1 then
@@ -360,16 +365,16 @@ begin
               rWrt.P();
               SignalStep;
          end;
-         status := 'Zwalniam mutex';
+         status := 'Zwalniam M';
          SignalStep;
          rMutex.V();
          status := 'Czytam';
          for i := 0 to Random(3)+1 do ZeroStep;
 
-         status := 'Zajmuję mutex';
+         status := 'Zajmuję M';
          SignalStep;
          rMutex.P();
-         status := 'Zmniejszam ReadCount';
+         status := 'Zmniejszam Czytelnikow';
          SignalStep;
          Dec(rReadCount);
          if rReadCount = 0 then
@@ -378,14 +383,14 @@ begin
               rWrt.V();
               SignalStep;
          end;
-         status := 'Zwalniam mutex';
+         status := 'Zwalniam M';
          SignalStep;
          rMutex.V();
      end;
 
     if logicType = ltWRITERS then
     begin
-         status := 'Zajmuje mutex 3';
+         status := 'Zajmuje M3';
          SignalStep;
          wMutex3.P();
 
@@ -393,7 +398,7 @@ begin
          SignalStep;
          wR.P();
 
-         status := 'Zajmuje mutex 1';
+         status := 'Zajmuje M1';
          SignalStep;
          wMutex1.P();
 
@@ -405,20 +410,20 @@ begin
               wW.P();
          end;
 
-         status := 'Zwalniam mutex 1';
+         status := 'Zwalniam M1';
          SignalStep;
          wMutex1.V();
          status := 'Zwalniam R';
          SignalStep;
          wR.V();
-         status := 'Zwalniam mutex 3';
+         status := 'Zwalniam M3';
          SignalStep;
          wMutex3.V();
 
          status := 'Czytam';
          for i := 0 to Random(3)+1 do ZeroStep;
 
-         status := 'Zajmuje mutex 1';
+         status := 'Zajmuje M1';
          SignalStep;
          wMutex1.P();
 
@@ -431,27 +436,27 @@ begin
               wW.V();
          end;
 
-         status := 'Zwalniam mutex 1';
+         status := 'Zwalniam M1';
          SignalStep;
          wMutex1.V();
     end;
 
     if logicType = ltFAIR then
     begin
-         status := 'Zajmuje no_waiting';
+         status := 'Zajmuje W';
          SignalStep;
          fNoWaiting.P();
 
-         status := 'Zajmuje counter_mutex';
+         status := 'Zajmuje M';
          SignalStep;
          fCounterMutex.P();
 
-         status := 'Przeprowadzam arytmetyke';
+         status := 'Zwiekszam Czytelnikow';
          SignalStep;
          prev := nreaders;
          Inc(nreaders);
 
-         status := 'Zwalniam counter_mutex';
+         status := 'Zwalniam M';
          SignalStep;
          fCounterMutex.V();
 
@@ -462,28 +467,28 @@ begin
               fNoAccessing.P();
          end;
 
-         status := 'Zwalniam no_waiting';
+         status := 'Zwalniam W';
          SignalStep;
          fNoWaiting.V();
 
          status := 'Czytam';
          for i := 0 to Random(3)+1 do ZeroStep;
 
-         status := 'Zajmuje counter_mutex';
+         status := 'Zajmuje M';
          SignalStep;
          fCounterMutex.P();
 
-         status := 'Dokonuje arytmetyki';
+         status := 'Zmniejszam czytelnikow';
          SignalStep;
          Dec(nreaders);
          current := nreaders;
 
-         status := 'Zwalniam counter_mutex';
+         status := 'Zwalniam M';
          fCounterMutex.V();
 
          if current = 0 then
          begin
-              status := 'Zwalniam no_access jako ostatni pisarz';
+              status := 'Zwalniam A jako ostatni pisarz';
               SignalStep;
               fNoAccessing.V();
          end;

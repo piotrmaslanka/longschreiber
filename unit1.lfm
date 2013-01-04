@@ -1,14 +1,14 @@
 object Form1: TForm1
-  Left = 411
+  Left = 412
   Height = 343
-  Top = 213
+  Top = 214
   Width = 602
   Caption = 'Longschreiber'
   ClientHeight = 343
   ClientWidth = 602
   OnCreate = FormCreate
   OnShow = FormShow
-  LCLVersion = '1.0.4.0'
+  LCLVersion = '1.0.2.0'
   object mCzytelnicy: TMemo
     Left = 0
     Height = 343

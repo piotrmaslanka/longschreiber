@@ -10,7 +10,7 @@ uses
 type
   TManagedThread = class(TThread)
   public
-    SignalStepCalls: Cardinal;
+    LastReset: TDateTime;
     CategoryCode: Cardinal;
     MySemaphore: TSemaphore; // do synchronizacji animacji
                  // jak watek juz na czyms nie wisi to zawisnie wlasnie na tym
@@ -36,7 +36,7 @@ implementation
 
 constructor TManagedThread.Create(CreateSuspended: Boolean);
 begin
-  SignalStepCalls := 0;
+   LastReset := Time;
    MySemaphore := TSemaphore.Create();
    FreeOnTerminate := false;
    inherited Create(CreateSuspended);
@@ -80,13 +80,12 @@ begin
 end;
 procedure TManagedThread.ZeroStep();
 begin
-  SignalStepCalls := 0;
+  LastReset := Time;
   MySemaphore.P();                      // powies sie na wlasnym semaforze :D
 end;
 
 procedure TManagedThread.SignalStep();
 begin
-  Inc(SignalStepCalls);
   MySemaphore.P();                      // powies sie na wlasnym semaforze :D
 end;
 initialization
