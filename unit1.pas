@@ -81,7 +81,7 @@ var
   wWritecount: Integer = 0;
   wMutex1, wMutex2, wMutex3, wW, wR: TSemaphore;
 
-  fNoWaiting, fNoAccessing, fCounterMutex: TSemaphore;
+  fA, fR, fO: TSemaphore;
   nreaders: Cardinal = 0;
 
   WritersList: TWritersList;
@@ -110,9 +110,9 @@ begin
   wW := TSemaphore.Create(1,1);
   wR := TSemaphore.Create(1,1);
 
-  fNoWaiting := TSemaphore.Create(1,1);
-  fNoAccessing := TSemaphore.Create(1,1);
-  fCounterMutex := TSemaphore.Create(1,1);
+  fA := TSemaphore.Create(1,1);
+  fR := TSemaphore.Create(1,1);
+  fO := TSemaphore.Create(1,1);
 end;
 
 procedure TForm1.Button1Click(Sender: TObject);
@@ -197,7 +197,7 @@ begin
    begin
         mutexesList.Lines.Append('W: '+IntToStr(rWrt.CurrentValue));
         mutexesList.Lines.Append('M: '+IntToStr(rWrt.CurrentValue));
-        mutexesList.Lines.Append('Czytelnikow: '+IntToStr(rReadCount));
+        mutexesList.Lines.Append('Czytelników: '+IntToStr(rReadCount));
    end else if logicType = ltWRITERS then // ------------- WRITERS
    begin
         mutexesList.Lines.Append('M1: '+IntToStr(wMutex1.CurrentValue));
@@ -205,12 +205,14 @@ begin
         mutexesList.Lines.Append('M3: '+IntToStr(wMutex3.CurrentValue));
         mutexesList.Lines.Append('W: '+IntToStr(wW.CurrentValue));
         mutexesList.Lines.Append('R: '+IntToStr(wR.CurrentValue));
+        mutexesList.Lines.Append('Czytelników: '+IntToStr(wReadCount));
+        mutexesList.Lines.Append('Czekających pisarzy: '+IntToStr(wWriteCount));
    end else if logicType = ltFAIR then // -------------- FAIR
    begin
-        mutexesList.Lines.Append('A: '+IntToStr(fNoAccessing.CurrentValue));
-        mutexesList.Lines.Append('W: '+IntToStr(fNoWaiting.CurrentValue));
-        mutexesList.Lines.Append('M: '+IntToStr(fCounterMutex.CurrentValue));
-        mutexesList.Lines.Append('Czytelnikow: '+IntToStr(nreaders));
+        mutexesList.Lines.Append('A: '+IntToStr(fA.CurrentValue));
+        mutexesList.Lines.Append('R: '+IntToStr(fR.CurrentValue));
+        mutexesList.Lines.Append('O: '+IntToStr(fO.CurrentValue));
+        mutexesList.Lines.Append('Czytelników: '+IntToStr(nreaders));
    end;
 end;
 
@@ -251,20 +253,20 @@ begin
 
     if logicType = ltREADERS then
     begin
-         status := 'Zajmuje W';
+         status := 'Opuszczam W';
          SignalStep;
          rWrt.P();
          status := 'Piszę';
          for i := 0 to Random(3)+1 do ZeroStep;
 
-         status := 'Zwalniam W';
+         status := 'Podnosze W';
          SignalStep;
          rWrt.V();
     end;
 
     if logicType = ltWRITERS then
     begin
-         status := 'Zajmuje M2';
+         status := 'Opuszczam M2';
          SignalStep;
          wMutex2.P();
          Inc(wWriteCount);
@@ -274,22 +276,22 @@ begin
               SignalStep;
               wR.P();
          end;
-         status := 'Zwalniam M2';
+         status := 'Podnosze M2';
          SignalStep;
          wMutex2.V();
 
-         status := 'Zajmuje W';
+         status := 'Opuszczam W';
          SignalStep;
          wW.P();
 
          status := 'Piszę';
          for i := 0 to Random(3)+1 do ZeroStep;
 
-         status := 'Zwalniam W';
+         status := 'Podnosze W';
          SignalStep;
          wW.V();
 
-         status := 'Zajmuje 2';
+         status := 'Opuszczam M2';
          SignalStep;
          wMutex2.P();
          Dec(wWriteCount);
@@ -300,31 +302,31 @@ begin
               wR.V();
          end;
 
-         status := 'Zwalniam 2';
+         status := 'Podnosze M2';
          SignalStep;
          wMutex2.V();
     end;
 
     if logicType = ltFAIR then
     begin
-       status := 'Zajmuje W';
+       status := 'Opuszczam O';
        SignalStep;
-       fNoWaiting.P();
+       fO.P();
 
-       status := 'Zajmuje A';
+       status := 'Opuszczam A';
        SignalStep;
-       fNoAccessing.P();
+       fA.P();
 
-       status := 'Zwalniam W';
+       status := 'Podnosze O';
        SignalStep;
-       fNoWaiting.V();
+       fO.V();
 
        status := 'Piszę';
        for i := 0 to Random(3)+1 do ZeroStep;
 
-       status := 'Zwalniam A';
+       status := 'Podnosze A';
        SignalStep;
-       fNoAccessing.V();
+       fA.V();
     end;
 
     // pick logic, pursue it
@@ -358,7 +360,7 @@ begin
 
     if logicType = ltREADERS then
     begin
-         status :='Zajmuje M';
+         status :='Opuszczam M';
          SignalStep;
          rMutex.P();
          status := 'Zwiększam Czytelnikow';
@@ -370,13 +372,13 @@ begin
               rWrt.P();
               SignalStep;
          end;
-         status := 'Zwalniam M';
+         status := 'Podnosze M';
          SignalStep;
          rMutex.V();
          status := 'Czytam';
          for i := 0 to Random(3)+1 do ZeroStep;
 
-         status := 'Zajmuję M';
+         status := 'Opuszczam M';
          SignalStep;
          rMutex.P();
          status := 'Zmniejszam Czytelnikow';
@@ -388,22 +390,22 @@ begin
               rWrt.V();
               SignalStep;
          end;
-         status := 'Zwalniam M';
+         status := 'Podnosze M';
          SignalStep;
          rMutex.V();
      end;
 
     if logicType = ltWRITERS then
     begin
-         status := 'Zajmuje M3';
+         status := 'Opuszczam M3';
          SignalStep;
          wMutex3.P();
 
-         status := 'Zajmuje R';
+         status := 'Opuszczam R';
          SignalStep;
          wR.P();
 
-         status := 'Zajmuje M1';
+         status := 'Opuszczam M1';
          SignalStep;
          wMutex1.P();
 
@@ -415,20 +417,20 @@ begin
               wW.P();
          end;
 
-         status := 'Zwalniam M1';
+         status := 'Podnosze M1';
          SignalStep;
          wMutex1.V();
-         status := 'Zwalniam R';
+         status := 'Podnosze R';
          SignalStep;
          wR.V();
-         status := 'Zwalniam M3';
+         status := 'Podnosze M3';
          SignalStep;
          wMutex3.V();
 
          status := 'Czytam';
          for i := 0 to Random(3)+1 do ZeroStep;
 
-         status := 'Zajmuje M1';
+         status := 'Opuszczam M1';
          SignalStep;
          wMutex1.P();
 
@@ -441,62 +443,61 @@ begin
               wW.V();
          end;
 
-         status := 'Zwalniam M1';
+         status := 'Podnosze M1';
          SignalStep;
          wMutex1.V();
     end;
 
     if logicType = ltFAIR then
     begin
-         status := 'Zajmuje W';
+         status := 'Opuszczam O';
          SignalStep;
-         fNoWaiting.P();
+         fO.P();
 
-         status := 'Zajmuje M';
+         status := 'Opuszczam R';
          SignalStep;
-         fCounterMutex.P();
+         fR.P();
 
-         status := 'Zwiekszam Czytelnikow';
-         SignalStep;
-         prev := nreaders;
-         Inc(nreaders);
-
-         status := 'Zwalniam M';
-         SignalStep;
-         fCounterMutex.V();
-
-         if prev = 0 then
+         if nreaders = 0 then
          begin
-              status := 'Jestem ostatnim czytelnikiem';
+              status := 'Jako pierwszy opuszczam A';
               SignalStep;
-              fNoAccessing.P();
+              fA.P();
          end;
 
-         status := 'Zwalniam W';
+         status := 'Zwiekszam il. czytelnikow';
          SignalStep;
-         fNoWaiting.V();
+         Inc(nreaders);
+
+         status := 'Podnosze O';
+         SignalStep;
+         fO.V();
+
+         status := 'Podnosze R';
+         SignalStep;
+         fR.V();
 
          status := 'Czytam';
          for i := 0 to Random(3)+1 do ZeroStep;
 
-         status := 'Zajmuje M';
+         status := 'Opuszczam R';
          SignalStep;
-         fCounterMutex.P();
+         fR.P();
 
-         status := 'Zmniejszam czytelnikow';
+         status := 'Zmniejszam il. czytelnikow';
          SignalStep;
          Dec(nreaders);
-         current := nreaders;
 
-         status := 'Zwalniam M';
-         fCounterMutex.V();
-
-         if current = 0 then
+         if nreaders = 0 then
          begin
-              status := 'Zwalniam A jako ostatni pisarz';
+              status := 'Podnosze A jako ostatni czytelnik';
               SignalStep;
-              fNoAccessing.V();
+              fA.V();
          end;
+
+         status := 'Podnosze R';
+         SignalStep;
+         fR.V();
     end;
 
     // pick logic, pursue it
