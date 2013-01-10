@@ -1,5 +1,6 @@
 unit Unit1;
-
+// Longschreiber - program ilustrujacy zagadnienie czytelników/pisarzy
+// Copyright (c) Piotr Maślanka 2013, wszystkie prawa zastrzezone
 {$mode objfpc}{$H+}
 
 interface
@@ -7,6 +8,10 @@ interface
 uses
   Classes, SysUtils, FileUtil, Forms, Controls, Graphics, Dialogs, StdCtrls,
   ExtCtrls, Unit2, semaphores, Synchropts, fgl;
+
+ResourceString
+  Author = 'Piotr Maślanka';
+  AuthorEmail = 'piotr.maslanka@henrietta.com.pl';
 
 const
   ltREADERS = 0;
@@ -125,18 +130,18 @@ end;
 procedure TForm1.Button3Click(Sender: TObject);
 begin
    if EverybodyReads then
-      Button3.Caption := 'Cała Polska czyta dzieciom'
+      Button3.Caption := 'Wymuś czytanie'
    else
-      Button3.Caption := 'Dość tego czytania';
+      Button3.Caption := 'Nie wymuszaj czytania';
    EverybodyReads := not EverybodyReads;
 end;
 
 procedure TForm1.Button4Click(Sender: TObject);
 begin
    if EverybodyWrites then
-      Button4.Caption := 'Wyciągamy karteczki'
+      Button4.Caption := 'Wymuś pisanie'
    else
-      Button4.Caption := 'Odkładamy długopisy';
+      Button4.Caption := 'Nie wymuszaj pisania';
    EverybodyWrites := not EverybodyWrites;
 end;
 
